@@ -18,7 +18,7 @@ public class NexTechModelLoadingPlugin implements ModelLoadingPlugin {
         pluginContext.modifyModelOnLoad().register((original, context) -> {
             // This is called for every model that is loaded, so make sure we only target ours
             final ModelIdentifier id = context.topLevelId();
-            if(id != null && (id.equals(PIPE_MODEL) || id.equals(PIPE_MODEL_ITEM))) {
+            if (id != null && (id.equals(PIPE_MODEL) || id.equals(PIPE_MODEL_ITEM))) {
                 return new PipeModel();
             } else {
                 // If we don't modify the model we just return the original as-is

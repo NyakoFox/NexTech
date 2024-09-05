@@ -24,6 +24,11 @@ public class PipeBlockEntity extends BlockEntity {
         this.connections = currentConnections;
     }
 
+    public boolean isSideConnected(Direction direction)
+    {
+        return this.connections[direction.getId()];
+    }
+
     @Override
     protected void readNbt(NbtCompound nbt, RegistryWrapper.WrapperLookup registryLookup) {
         boolean[] currentConnections = {false, false, false, false, false, false};

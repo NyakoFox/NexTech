@@ -77,6 +77,11 @@ public class PipeModel implements FabricBakedModel, BakedModel, UnbakedModel {
     }
 
     @Override
+    public boolean isVanillaAdapter() {
+        return false;
+    }
+
+    @Override
     public void emitBlockQuads(BlockRenderView blockView, BlockState state, BlockPos pos, Supplier<Random> randomSupplier, RenderContext context) {
         var client = MinecraftClient.getInstance();
         var bakedModelManager = client.getBakedModelManager();

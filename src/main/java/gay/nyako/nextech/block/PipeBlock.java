@@ -5,12 +5,16 @@ import net.minecraft.block.*;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.item.ItemStack;
+import net.minecraft.util.function.BooleanBiFunction;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
 import net.minecraft.util.shape.VoxelShape;
+import net.minecraft.util.shape.VoxelShapes;
 import net.minecraft.world.BlockView;
 import net.minecraft.world.World;
 import org.jetbrains.annotations.Nullable;
+
+import java.util.ArrayList;
 
 public class PipeBlock extends BlockWithEntity {
     public PipeBlock(Settings settings) {
@@ -92,6 +96,41 @@ public class PipeBlock extends BlockWithEntity {
 
     @Override
     public VoxelShape getOutlineShape(BlockState state, BlockView view, BlockPos pos, ShapeContext context) {
-        return Block.createCuboidShape(5, 5, 5, 11, 11, 11);
+        ArrayList<VoxelShape> voxelShapes = new ArrayList<>();
+
+        // Core, always there
+        voxelShapes.add(Block.createCuboidShape(5, 5, 5, 11, 11, 11));
+
+        // Connections
+
+        BlockEntity blockEntity = view.getBlockEntity(pos);
+        if (blockEntity instanceof PipeBlockEntity pipeBlockEntity) {
+            for (Direction direction : DIRECTIONS) {
+                if (pipeBlockEntity.isSideConnected(direction)) {
+                    switch (direction) {
+                        case NORTH:
+                            voxelShapes.add(Block.createCuboidShape(6, 6, 0, 10, 10, 5));
+                            break;
+                        case SOUTH:
+                            voxelShapes.add(Block.createCuboidShape(6, 6, 11, 10, 10, 16));
+                            break;
+                        case EAST:
+                            voxelShapes.add(Block.createCuboidShape(10, 6, 6, 16, 10, 10));
+                            break;
+                        case WEST:
+                            voxelShapes.add(Block.createCuboidShape(0, 6, 6, 11, 10, 10));
+                            break;
+                        case UP:
+                            voxelShapes.add(Block.createCuboidShape(6, 11, 6, 10, 16, 10));
+                            break;
+                        case DOWN:
+                            voxelShapes.add(Block.createCuboidShape(6, 0, 6, 10, 5, 10));
+                            break;
+                    }
+                }
+            }
+        }
+
+        return voxelShapes.stream().reduce((v1, v2) -> VoxelShapes.combineAndSimplify(v1, v2, BooleanBiFunction.OR)).get();
     }
 }
