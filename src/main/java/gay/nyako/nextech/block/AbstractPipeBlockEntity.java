@@ -1,8 +1,9 @@
 package gay.nyako.nextech.block;
 
-import gay.nyako.nextech.NexTechEntities;
+import gay.nyako.nextech.network.Connections;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.entity.BlockEntity;
+import net.minecraft.block.entity.BlockEntityType;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.network.listener.ClientPlayPacketListener;
 import net.minecraft.network.packet.Packet;
@@ -13,34 +14,27 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
 import org.jetbrains.annotations.Nullable;
 
-public class PipeBlockEntity extends BlockEntity {
-    private boolean[] connections = {false, false, false, false, false, false};
+public abstract class AbstractPipeBlockEntity extends BlockEntity {
+    private Connections connections = new Connections();
 
-    public PipeBlockEntity(BlockPos pos, BlockState state) {
-        super(NexTechEntities.PIPE, pos, state);
+    public AbstractPipeBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState state) {
+        super(type, pos, state);
     }
 
-    public void setConnections(boolean[] currentConnections) {
+    public void setConnections(Connections currentConnections) {
         this.connections = currentConnections;
     }
 
     public boolean isSideConnected(Direction direction)
     {
-        return this.connections[direction.getId()];
+        return this.connections.hasConnection(direction);
     }
 
     @Override
     protected void readNbt(NbtCompound nbt, RegistryWrapper.WrapperLookup registryLookup) {
-        boolean[] currentConnections = {false, false, false, false, false, false};
-        for (int i = 0; i < currentConnections.length; i++)
-        {
-            Direction direction = Direction.byId(i);
-            if (nbt.contains(direction.name()))
-            {
-                currentConnections[i] = nbt.getBoolean(direction.name());
-            }
+        if (nbt.contains("connections")) {
+            this.connections.read(nbt.getCompound("connections"));
         }
-        setConnections(currentConnections);
 
         if (world != null && world.isClient) {
             world.updateListeners(pos, null, null, 0);
@@ -53,11 +47,7 @@ public class PipeBlockEntity extends BlockEntity {
 
     @Override
     protected void writeNbt(NbtCompound nbt, RegistryWrapper.WrapperLookup registryLookup) {
-        for (int i = 0; i < connections.length; i++)
-        {
-            Direction direction = Direction.byId(i);
-            nbt.putBoolean(direction.name(), connections[i]);
-        }
+        nbt.put("connections", this.connections.write());
     }
 
     @Override

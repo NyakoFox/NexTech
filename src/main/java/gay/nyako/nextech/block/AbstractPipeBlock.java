@@ -1,6 +1,7 @@
 package gay.nyako.nextech.block;
 
 import com.mojang.serialization.MapCodec;
+import gay.nyako.nextech.network.Connections;
 import net.minecraft.block.*;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.entity.LivingEntity;
@@ -15,10 +16,15 @@ import net.minecraft.world.World;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.Queue;
 
-public class PipeBlock extends BlockWithEntity {
-    public PipeBlock(Settings settings) {
+public abstract class AbstractPipeBlock extends BlockWithEntity {
+    ArrayList<BlockPos> network;
+
+    public AbstractPipeBlock(Settings settings) {
         super(settings);
+        network = new ArrayList<>();
     }
 
     @Override
@@ -32,19 +38,55 @@ public class PipeBlock extends BlockWithEntity {
     }
 
     @Override
-    protected MapCodec<? extends BlockWithEntity> getCodec() {
-        return createCodec(PipeBlock::new);
-    }
-
-    @Override
     protected BlockRenderType getRenderType(BlockState state) {
         return BlockRenderType.MODEL;
     }
+
+    public void remakeNetwork(World world, BlockPos pos)
+    {
+        ArrayList<BlockPos> network = new ArrayList<>();
+        ArrayList<BlockPos> blocksChecked = new ArrayList<>();
+
+        network.add(pos);
+
+        Queue<BlockPos> blocksToCheck = new LinkedList<>();
+        blocksToCheck.add(pos);
+
+        while (!blocksToCheck.isEmpty()) {
+            BlockPos blockPos = blocksToCheck.poll();
+            if (world.getBlockEntity(blockPos) instanceof AbstractPipeBlockEntity pipeBlockEntity)
+            {
+                for (Direction direction : DIRECTIONS) {
+                    boolean connected = pipeBlockEntity.isSideConnected(direction);
+                    if (connected)
+                    {
+                        BlockPos newPos = blockPos.offset(direction);
+                        if (blocksChecked.contains(newPos)) continue;
+                        blocksChecked.add(newPos);
+
+                        if (connectsTo(world, newPos))
+                        {
+                            network.add(newPos);
+                            if (world.getBlockEntity(newPos) instanceof AbstractPipeBlockEntity) {
+                                blocksToCheck.add(newPos);
+                            }
+                        }
+
+                    }
+                }
+            }
+        }
+
+        this.network = network;
+    }
+
+    public abstract boolean connectsTo(World world, BlockPos pos);
 
     @Override
     public void onPlaced(World world, BlockPos pos, BlockState state, LivingEntity placer, ItemStack stack) {
         super.onPlaced(world, pos, state, placer, stack);
         updateConnections(world, pos);
+        remakeNetwork(world, pos);
     }
 
     @Override
@@ -52,6 +94,7 @@ public class PipeBlock extends BlockWithEntity {
         super.onStateReplaced(state, world, pos, newState, moved);
         if (!world.isClient) {
             updateConnections(world, pos);
+            remakeNetwork(world, pos);
         }
     }
 
@@ -60,38 +103,33 @@ public class PipeBlock extends BlockWithEntity {
         super.neighborUpdate(state, world, pos, sourceBlock, sourcePos, notify);
         if (!world.isClient) {
             updateConnections(world, pos);
+            remakeNetwork(world, pos);
         }
     }
 
     public void updateConnections(World world, BlockPos pos)
     {
         BlockEntity blockEntity = world.getBlockEntity(pos);
-        if (blockEntity instanceof PipeBlockEntity pipeBlockEntity)
+        if (blockEntity instanceof AbstractPipeBlockEntity pipeBlockEntity)
         {
-            boolean[] connections = new boolean[DIRECTIONS.length];
+            Connections connections = new Connections();
 
             for (Direction direction : DIRECTIONS)
             {
-                boolean isConnected = false;
-                BlockEntity directionEntity = world.getBlockEntity(pos.add(direction.getVector()));
-                if (directionEntity != null)
+                BlockPos offsetPos = pos.add(direction.getVector());
+                if (connectsTo(world, offsetPos))
                 {
-                    // just connect to anything
-                    isConnected = true;
+                    connections.addConnection(direction, new Connections.Connection(offsetPos, false));
                 }
-
-                connections[direction.getId()] = isConnected;
+                else if (world.getBlockState(offsetPos).getBlock() == this)
+                {
+                    connections.addConnection(direction, new Connections.Connection(offsetPos, true));
+                }
             }
 
             pipeBlockEntity.setConnections(connections);
             pipeBlockEntity.markDirty();
         }
-    }
-
-    @Nullable
-    @Override
-    public BlockEntity createBlockEntity(BlockPos pos, BlockState state) {
-        return new PipeBlockEntity(pos, state);
     }
 
     @Override
@@ -104,7 +142,7 @@ public class PipeBlock extends BlockWithEntity {
         // Connections
 
         BlockEntity blockEntity = view.getBlockEntity(pos);
-        if (blockEntity instanceof PipeBlockEntity pipeBlockEntity) {
+        if (blockEntity instanceof AbstractPipeBlockEntity pipeBlockEntity) {
             for (Direction direction : DIRECTIONS) {
                 if (pipeBlockEntity.isSideConnected(direction)) {
                     switch (direction) {

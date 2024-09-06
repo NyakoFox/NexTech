@@ -7,7 +7,7 @@ import net.minecraft.registry.Registry;
 import net.minecraft.util.Identifier;
 
 public class NexTechItems {
-    public static final Item PIPE = register("pipe", new BlockItem(NexTechBlocks.PIPE, new Item.Settings()));
+    public static final Item ITEM_PIPE = register("item_pipe", new BlockItem(NexTechBlocks.ITEM_PIPE, new Item.Settings()));
 
     public static Item register(String id, Item item) {
         return Registry.register(Registries.ITEM, Identifier.of("nextech", id), item);

@@ -1,0 +1,7 @@
+{
+	"parent": "nextech:block/pipe/base/connector",
+	"textures": {
+		"0": "nextech:block/pipe/fluid",
+		"particle": "nextech:block/pipe/fluid"
+	}
+}
