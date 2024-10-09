@@ -1,7 +1,11 @@
 package gay.nyako.nextech;
 
+import gay.nyako.nextech.block.AbstractPipeBlockEntity;
+import gay.nyako.nextech.network.PipeNetworkManager;
 import net.fabricmc.api.ModInitializer;
 
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerBlockEntityEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -24,5 +28,15 @@ public class NexTech implements ModInitializer {
 		NexTechBlocks.register();
 		NexTechItems.register();
 		NexTechEntities.register();
+
+		ServerTickEvents.START_WORLD_TICK.register(world -> {
+			PipeNetworkManager.getInstance(world).tick();
+		});
+
+		ServerBlockEntityEvents.BLOCK_ENTITY_LOAD.register((blockEntity, world) -> {
+			if (blockEntity instanceof AbstractPipeBlockEntity pipeBlockEntity && !pipeBlockEntity.initializedConnections()) {
+				pipeBlockEntity.getPipeNetwork().queueForLoad(pipeBlockEntity);
+			}
+		});
 	}
 }

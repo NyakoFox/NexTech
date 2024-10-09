@@ -1,30 +1,29 @@
 package gay.nyako.nextech.block;
 
-import com.mojang.serialization.MapCodec;
-import gay.nyako.nextech.network.Connections;
+import gay.nyako.nextech.NexTech;
+import gay.nyako.nextech.network.ConnectionMode;
 import net.minecraft.block.*;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
+import net.minecraft.util.ActionResult;
+import net.minecraft.util.Hand;
 import net.minecraft.util.function.BooleanBiFunction;
+import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
 import net.minecraft.util.shape.VoxelShape;
 import net.minecraft.util.shape.VoxelShapes;
 import net.minecraft.world.BlockView;
 import net.minecraft.world.World;
-import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
-import java.util.LinkedList;
-import java.util.Queue;
 
 public abstract class AbstractPipeBlock extends BlockWithEntity {
-    ArrayList<BlockPos> network;
-
     public AbstractPipeBlock(Settings settings) {
         super(settings);
-        network = new ArrayList<>();
     }
 
     @Override
@@ -42,51 +41,10 @@ public abstract class AbstractPipeBlock extends BlockWithEntity {
         return BlockRenderType.MODEL;
     }
 
-    public void remakeNetwork(World world, BlockPos pos)
-    {
-        ArrayList<BlockPos> network = new ArrayList<>();
-        ArrayList<BlockPos> blocksChecked = new ArrayList<>();
-
-        network.add(pos);
-
-        Queue<BlockPos> blocksToCheck = new LinkedList<>();
-        blocksToCheck.add(pos);
-
-        while (!blocksToCheck.isEmpty()) {
-            BlockPos blockPos = blocksToCheck.poll();
-            if (world.getBlockEntity(blockPos) instanceof AbstractPipeBlockEntity pipeBlockEntity)
-            {
-                for (Direction direction : DIRECTIONS) {
-                    boolean connected = pipeBlockEntity.isSideConnected(direction);
-                    if (connected)
-                    {
-                        BlockPos newPos = blockPos.offset(direction);
-                        if (blocksChecked.contains(newPos)) continue;
-                        blocksChecked.add(newPos);
-
-                        if (connectsTo(world, newPos))
-                        {
-                            network.add(newPos);
-                            if (world.getBlockEntity(newPos) instanceof AbstractPipeBlockEntity) {
-                                blocksToCheck.add(newPos);
-                            }
-                        }
-
-                    }
-                }
-            }
-        }
-
-        this.network = network;
-    }
-
-    public abstract boolean connectsTo(World world, BlockPos pos);
-
     @Override
     public void onPlaced(World world, BlockPos pos, BlockState state, LivingEntity placer, ItemStack stack) {
         super.onPlaced(world, pos, state, placer, stack);
         updateConnections(world, pos);
-        remakeNetwork(world, pos);
     }
 
     @Override
@@ -94,7 +52,6 @@ public abstract class AbstractPipeBlock extends BlockWithEntity {
         super.onStateReplaced(state, world, pos, newState, moved);
         if (!world.isClient) {
             updateConnections(world, pos);
-            remakeNetwork(world, pos);
         }
     }
 
@@ -103,33 +60,46 @@ public abstract class AbstractPipeBlock extends BlockWithEntity {
         super.neighborUpdate(state, world, pos, sourceBlock, sourcePos, notify);
         if (!world.isClient) {
             updateConnections(world, pos);
-            remakeNetwork(world, pos);
         }
     }
 
-    public void updateConnections(World world, BlockPos pos)
-    {
+    public void updateConnections(World world, BlockPos pos) {
         BlockEntity blockEntity = world.getBlockEntity(pos);
-        if (blockEntity instanceof AbstractPipeBlockEntity pipeBlockEntity)
-        {
-            Connections connections = new Connections();
+        if (blockEntity instanceof AbstractPipeBlockEntity pipeBlockEntity) {
+            pipeBlockEntity.updateConnections();
+        }
+    }
 
-            for (Direction direction : DIRECTIONS)
-            {
-                BlockPos offsetPos = pos.add(direction.getVector());
-                if (connectsTo(world, offsetPos))
-                {
-                    connections.addConnection(direction, new Connections.Connection(offsetPos, false));
+    @Override
+    protected ActionResult onUse(BlockState state, World world, BlockPos pos, PlayerEntity player, BlockHitResult hit) {
+        if (player != null && !player.getStackInHand(Hand.MAIN_HAND).isEmpty() && player.getStackInHand(Hand.MAIN_HAND).getItem() == Items.STICK) {
+            if (world.isClient) {
+                return ActionResult.SUCCESS;
+            }
+
+            var blockEntity = world.getBlockEntity(pos);
+            if (blockEntity instanceof AbstractPipeBlockEntity pipeBlockEntity) {
+                NexTech.LOGGER.info("==== DEBUGGING PIPE! ====");
+
+                var network = pipeBlockEntity.getPipeNetwork();
+
+                if (!network.containsNode(pipeBlockEntity)) {
+                    NexTech.LOGGER.info("Not in a network!");
                 }
-                else if (world.getBlockState(offsetPos).getBlock() == this)
-                {
-                    connections.addConnection(direction, new Connections.Connection(offsetPos, true));
+
+                var endpoints = network.getEndpointsFrom(pipeBlockEntity.getPipeNetworkNode());
+
+                for (var endpoint : endpoints) {
+                    var node = endpoint.node();
+
+                    NexTech.LOGGER.info("[{}] | {} | Direction: {} | Distance: {}", node.getPipePos().toShortString(), node.getConnectionMode().toString(), node.getPipeSide().toString(), endpoint.distance());
                 }
             }
 
-            pipeBlockEntity.setConnections(connections);
-            pipeBlockEntity.markDirty();
+            return ActionResult.SUCCESS;
         }
+
+        return ActionResult.PASS;
     }
 
     @Override

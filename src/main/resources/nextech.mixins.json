@@ -3,7 +3,8 @@
 	"package": "gay.nyako.nextech.mixin",
 	"compatibilityLevel": "JAVA_21",
 	"mixins": [
-		"ExampleMixin"
+		"ExampleMixin",
+		"WorldMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

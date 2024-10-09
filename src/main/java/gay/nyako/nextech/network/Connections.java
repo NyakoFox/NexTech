@@ -18,6 +18,14 @@ public class Connections {
         return connections.containsKey(direction);
     }
 
+    public boolean hasConnection(Direction direction, boolean isPipe) {
+        return hasConnection(direction) && getConnection(direction).isPipe == isPipe;
+    }
+
+    public Connection getConnection(Direction direction) {
+        return connections.get(direction);
+    }
+
     public void addConnection(Direction direction, Connection connection)
     {
         connections.put(direction, connection);
@@ -54,8 +62,9 @@ public class Connections {
     }
 
     public static class Connection {
-        BlockPos position;
-        boolean isPipe;
+        public BlockPos position;
+        public boolean isPipe;
+
         public Connection(BlockPos position, boolean isPipe)
         {
             this.position = position;
