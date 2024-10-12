@@ -1,0 +1,7 @@
+{
+	"parent": "nextech:block/pipe/base/end",
+	"textures": {
+		"0": "nextech:block/pipe/energy",
+		"particle": "nextech:block/pipe/energy"
+	}
+}

@@ -30,17 +30,20 @@ import java.util.function.Supplier;
 public class PipeModel implements FabricBakedModel, BakedModel, UnbakedModel {
     private final Identifier coreModelId;
     private final Identifier connectorModelId;
+    private final Identifier endModelId;
 
     public PipeModel(String variant)
     {
         coreModelId = Identifier.of("nextech", "block/pipe/" + variant + "/core");
         connectorModelId = Identifier.of("nextech", "block/pipe/" + variant + "/connector");
+        endModelId = Identifier.of("nextech", "block/pipe/" + variant + "/end");
     }
 
     public static List<Identifier> getDependenciesFor(String variant) {
         var coreModelId = Identifier.of("nextech", "block/pipe/" + variant + "/core");
         var connectorModelId = Identifier.of("nextech", "block/pipe/" + variant + "/connector");
-        return List.of(coreModelId, connectorModelId);
+        var endModelId = Identifier.of("nextech", "block/pipe/" + variant + "/end");
+        return List.of(coreModelId, connectorModelId, endModelId);
     }
 
     @Override
@@ -96,6 +99,7 @@ public class PipeModel implements FabricBakedModel, BakedModel, UnbakedModel {
 
         var coreModel = (FabricBakedModel) bakedModelManager.getModel(coreModelId);
         var connectorModel = (FabricBakedModel) bakedModelManager.getModel(connectorModelId);
+        var endModel = (FabricBakedModel) bakedModelManager.getModel(endModelId);
 
         coreModel.emitBlockQuads(blockView, state, pos, randomSupplier, context);
 
@@ -106,6 +110,10 @@ public class PipeModel implements FabricBakedModel, BakedModel, UnbakedModel {
                     pushTransform(direction, context);
 
                     connectorModel.emitBlockQuads(blockView, state, pos, randomSupplier, context);
+
+                    if (!connections.getConnection(direction).isPipe) {
+                        endModel.emitBlockQuads(blockView, state, pos, randomSupplier, context);
+                    }
 
                     context.popTransform();
                 }

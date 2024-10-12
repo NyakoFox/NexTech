@@ -13,6 +13,9 @@ import net.minecraft.text.Text;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Box;
+import net.minecraft.util.math.Boxes;
+import net.minecraft.util.shape.VoxelShapes;
 import net.minecraft.world.World;
 import org.jetbrains.annotations.Nullable;
 
@@ -40,15 +43,32 @@ public class ItemPipeBlock extends AbstractPipeBlock {
             return result;
         }
 
-        var pipeEntity = world.getBlockEntity(pos, NexTechEntities.ITEM_PIPE);
+        var pipeEntityResult = world.getBlockEntity(pos, NexTechEntities.ITEM_PIPE);
 
-        if (pipeEntity.isEmpty()) {
+        if (pipeEntityResult.isEmpty()) {
             return ActionResult.PASS;
         }
 
-        var extracting = pipeEntity.get().toggleExtracting();
+        var pipeEntity = pipeEntityResult.get();
 
-        player.sendMessage(Text.literal("Switched pipe mode to " + (extracting ? "EXTRACT" : "INSERT")), true);
+        for (var direction : DIRECTIONS) {
+            var shape = getConnectionShape(pipeEntity, direction);
+
+            if (shape != null) {
+                var hitSide = shape
+                        .offset(pos.getX(), pos.getY(), pos.getZ())
+                        .getBoundingBoxes().stream()
+                        .anyMatch(box -> box.contains(hit.getPos()));
+
+                if (hitSide) {
+                    var extracting = pipeEntity.toggleExtracting(direction);
+                    if (extracting.isPresent()) {
+                        player.sendMessage(Text.literal("Switched " + direction.toString() + " to " + (extracting.get() ? "EXTRACT" : "INSERT")), true);
+                    }
+                    break;
+                }
+            }
+        }
 
         return ActionResult.SUCCESS;
     }

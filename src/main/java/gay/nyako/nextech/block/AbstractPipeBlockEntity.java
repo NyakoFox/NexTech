@@ -73,6 +73,10 @@ public abstract class AbstractPipeBlockEntity extends BlockEntity implements Pip
         return this.connections.hasConnection(side);
     }
 
+    public Connections.Connection getConnection(Direction side) {
+        return this.connections.getConnection(side);
+    }
+
     public abstract boolean connectsTo(Direction side, BlockPos targetPos);
 
     public abstract void tickNetwork(PipeNetwork network, PipeNetworkNode node, Direction side, BigInteger tickCount);

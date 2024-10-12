@@ -20,6 +20,8 @@ import net.minecraft.util.math.Direction;
 
 import java.math.BigInteger;
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Optional;
 
 public class ItemPipeBlockEntity extends AbstractPipeBlockEntity {
     // Arbitrary testing values until we have pipe tiers / options
@@ -28,14 +30,14 @@ public class ItemPipeBlockEntity extends AbstractPipeBlockEntity {
 
     private final PipeNetworkNode pipeNetworkNode;
 
-    private boolean extracting;
+    private HashSet<Direction> extracting;
 
     public ItemPipeBlockEntity(BlockPos pos, BlockState state) {
         super(NexTechEntities.ITEM_PIPE, pos, state);
 
         pipeNetworkNode = new SimplePipeNetworkNode(pos);
 
-        extracting = false;
+        extracting = new HashSet<>();
     }
 
     @Override
@@ -47,20 +49,18 @@ public class ItemPipeBlockEntity extends AbstractPipeBlockEntity {
         // // Otherwise, there's no way to put items in it, bail
         // return false;
         var storage = ItemStorage.SIDED.find(world, targetPos, side);
-        return storage != null && (storage.supportsInsertion() || (extracting && storage.supportsExtraction()));
+        return storage != null && (storage.supportsInsertion() || (extracting.contains(side) && storage.supportsExtraction()));
     }
 
     @Override
     public void tickNetwork(PipeNetwork network, PipeNetworkNode node, Direction side, BigInteger tickCount) {
-        if (!extracting) {
+        if (!extracting.contains(side)) {
             return;
         }
 
         if (!tickCount.mod(BigInteger.valueOf(EXTRACT_RATE)).equals(BigInteger.ZERO)) {
             return;
         }
-
-        NexTech.LOGGER.info("Ticking extraction at [{}] {}", pos.toShortString(), side.toString());
 
         var targetPos = pos.offset(side);
 
@@ -135,8 +135,8 @@ public class ItemPipeBlockEntity extends AbstractPipeBlockEntity {
 
     @Override
     public PipeNetworkNode getConnectedPipeNetworkNode(Direction side, BlockPos targetPos) {
-        var connectionMode = extracting ? ConnectionMode.OUT : ConnectionMode.BOTH;
-        var shouldTick = extracting;
+        var connectionMode = extracting.contains(side) ? ConnectionMode.OUT : ConnectionMode.BOTH;
+        var shouldTick = extracting.contains(side);
 
         return new EndpointPipeNetworkNode(pos, side, connectionMode, shouldTick);
     }
@@ -148,8 +148,11 @@ public class ItemPipeBlockEntity extends AbstractPipeBlockEntity {
 
     @Override
     protected void readNbt(NbtCompound nbt, RegistryWrapper.WrapperLookup registryLookup) {
-        if (nbt.contains("extracting")) {
-            this.extracting = nbt.getBoolean("extracting");
+        if (nbt.contains("extractingSides")) {
+            this.extracting = new HashSet<>();
+            for (var side : nbt.getIntArray("extractingSides")) {
+                extracting.add(Direction.byId(side));
+            }
         }
 
         super.readNbt(nbt, registryLookup);
@@ -157,16 +160,26 @@ public class ItemPipeBlockEntity extends AbstractPipeBlockEntity {
 
     @Override
     protected void writeNbt(NbtCompound nbt, RegistryWrapper.WrapperLookup registryLookup) {
-        nbt.putBoolean("extracting", this.extracting);
+        nbt.putIntArray("extractingSides", this.extracting.stream().map(Direction::getId).toList());
 
         super.writeNbt(nbt, registryLookup);
     }
 
-    public boolean toggleExtracting() {
-        extracting = !extracting;
+    public Optional<Boolean> toggleExtracting(Direction side) {
+        var connection = getConnection(side);
+
+        if (connection == null || connection.isPipe) {
+            return Optional.empty();
+        }
+
+        if (extracting.contains(side)) {
+            extracting.remove(side);
+        } else {
+            extracting.add(side);
+        }
 
         updateConnections();
 
-        return extracting;
+        return Optional.of(extracting.contains(side));
     }
 }
